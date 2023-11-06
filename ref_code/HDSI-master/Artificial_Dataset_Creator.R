@@ -40,7 +40,10 @@ dataset=function(varnum, setting="No_Correlation", var=c("Mar", "No_Mar", "No_Va
   variablelist=unlist(variablelist)
   ta$y= c + (b1*ta$X1) + (b2*ta$X2) + (b3*ta$X3) + (b4*ta$X1*ta$X2) + rnorm(n=1000, mean=0, sd=0.25)
   index=sample(1:nrow(ta), nrow(ta)/2, replace = F)
-  traindf=ta[index,] ## sample half as training half as validation
+  traindf=ta[index,]
   validationdf=ta[-index,]
   return(list(train=traindf,test=validationdf))
 }
+
+
+dataset
