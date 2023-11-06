@@ -1,0 +1,95 @@
+---
+title: "High Dimensional Selection with Interactions Algorithm on Feature Selection for Time-to-Event Outcome"
+#subtitle: "&#x2694;&#xFE0F; xaringan +<br/>&#x1F60E; xaringanthemer"  
+author: 
+  - "Lin Yu"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: true
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  hiline = TRUE
+)
+
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  base_color = "#1c5253",
+  header_font_google = google_font("Josefin Sans"),
+  text_font_google   = google_font("Montserrat", "300", "300i"),
+  code_font_google   = google_font("Fira Mono")
+)
+```
+
+
+```{r xaringanExtra-search, echo=FALSE}
+xaringanExtra::use_search(show_icon = TRUE)
+xaringanExtra::style_search(match_background = "skyblue")
+xaringanExtra::use_clipboard()
+xaringanExtra::use_scribble()
+xaringanExtra::use_tile_view() ## press O 
+xaringanExtra::use_progress_bar(color = "#3C989E", location = "bottom")
+xaringanExtra::use_extra_styles(
+  hover_code_line = TRUE,         
+  mute_unhighlighted_code = TRUE  
+)
+```
+
+
+# Background
+
+This .purple[word] is purple.
+
+---
+class: center, middle 
+```{r echo=FALSE, fig.height=6.5, fig.width=8, dpi=300}
+## this is a test
+```
+
+---
+## Notation
+Original dataset:
+- Sample size (n): total number of observations
+- feature dimension (p): total number of features
+
+Feature selection
+1. prepare bootstrap samples
+- each bootstrapped data set has
+  - n observations (use bootstrap with replacement)
+  - q features (hyperparameter bootstrap without replacement)
+  
+2. prepare interaction terms
+
+3. apply lasso, adaptive lasso, regression to get the estimates of all beta coefficients
+
+4. compute averaged value of beta estimate, and min(R^2) of each feature
+
+5. select features using two criteria:
+  - quantiles of B estimates should not include zero (significant) (hyperparameter)
+  - 
+  
+
+
+  
+  
+
+
