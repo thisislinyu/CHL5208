@@ -13,7 +13,8 @@ sim_survdat_f(
   beta = NA,
   crate = 0.001,
   cor = TRUE,
-  seed = 20231106
+  seed = 20231106,
+  ...
 )
 }
 \arguments{

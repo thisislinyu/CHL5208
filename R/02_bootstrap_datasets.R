@@ -1,3 +1,19 @@
+#' Generating bootstrap sample datasets
+#'
+#' @param df working dataset,simulated or real data collected
+#' @param nboot number of bootstrap datasets
+#' @param boot_ft number of features in each bootstrap dataset
+#' @param seed random seed
+#'
+#' @return a list, size = nboot, each element is a dataframe
+#' @export
+#'
+#' @examples
+#'library(survival)
+#'dat <- sim_survdat_f(nsample =1000, varnum = 25,dist='g',lambda=0.01, rho=1, beta=c(2.3,0.3,0.4), crate=0.001,cor=TRUE,seed=20231106)
+#'fit <- survival::coxph(Surv(time, status) ~ X1+X3+X1*X3, data=dat)
+#' boot_lst <- boot_f(df = ,nboot = 100,boot_ft = 5,seed = 20231106)
+
 boot_f <- function(df = NA,
                    nboot = 100,
                    boot_ft = 5,

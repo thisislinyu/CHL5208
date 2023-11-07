@@ -3,6 +3,7 @@ title: "High Dimensional Selection with Interactions Algorithm on Feature Select
 #subtitle: "&#x2694;&#xFE0F; xaringan +<br/>&#x1F60E; xaringanthemer"  
 author: 
   - "Lin Yu"
+  - 
 date: '`r Sys.Date()`'
 output:
   xaringan::moon_reader:
@@ -54,11 +55,66 @@ xaringanExtra::use_extra_styles(
 )
 ```
 
+```{r xaringan-fit-screen, echo=FALSE}
+xaringanExtra::use_fit_screen()
+```
 
-# Background
+### Feature Selection in High Demensional Dataset is Necessay
 
-This .purple[word] is purple.
+- Remove noisy features
 
+- <span style="color: red;">Extention to </span>
+
+### Existing Algorithms Do not Consider Interaction effects
+- random
+
+### Propsed HDSI Algorithm
+- incorporated interaction terms
+
+- tested with continuous and binary outcome
+
+---
+class: center, middle 
+> ## Objective: Extend HDSI to time-to-event data
+
+
+---
+# Main ideas of feature selection
+
+- What we want to achieve in FS: Find **important** features 
+
+- How do we measure the importance of features?
+
+
+---
+
+randomless 
+
+bootstrap
+
+
+
+
+
+
+---
+# Simulation
+
+### - Data generation
+- Weibull
+
+- Cox regression
+
+### Scenarios
+
+- 
+
+
+---
+# Real Data Analysis
+
+---
+# Conclusion
 ---
 class: center, middle 
 ```{r echo=FALSE, fig.height=6.5, fig.width=8, dpi=300}
