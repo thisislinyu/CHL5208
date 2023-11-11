@@ -4,7 +4,8 @@ fitness = function(x,nfold=3,train=traindf,interaction_numb=2,outvar="y",method=
   datasize<-nrow(train)
   index<-CVgroup(K=nfold,datasize=datasize,seed=seed)
   #cl<-makeCluster(39,type="FORK")
-  res<-sapply(1:nfold,K_HDSI,data=train,index=index,interaction_numb=interaction_numb,method=method,effectsize=effectsize,seed=seed,q=q,a=x[2],b=x[3],selection=rule,outvar=outvar)
+  res<-sapply(1:nfold,K_HDSI,data=train,index=index,interaction_numb=interaction_numb,method=method,effectsize=effectsize,
+              seed=seed,q=q,a=x[2],b=x[3],selection=rule,outvar=outvar)
   #stopCluster(cl)
   mean_auc<-mean(res)
   return(mean_auc)
@@ -14,11 +15,11 @@ fitness = function(x,nfold=3,train=traindf,interaction_numb=2,outvar="y",method=
 CVgroup <- function(K,datasize,seed){
   cvlist <- list()
   set.seed(seed)
-  n <- rep(1:K,ceiling(datasize/K))[1:datasize]    
-  temp <- sample(n,datasize)   
+  n <- rep(1:K,ceiling(datasize/K))[1:datasize]
+  temp <- sample(n,datasize)
   x <- 1:K
   dataseq <- 1:datasize
-  cvlist <- lapply(x,function(x) dataseq[temp==x])  
+  cvlist <- lapply(x,function(x) dataseq[temp==x])
   return(cvlist)
 }
 

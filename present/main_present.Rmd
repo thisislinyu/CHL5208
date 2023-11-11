@@ -87,9 +87,9 @@ class: center, middle
 
 
 ---
+# Bootstrap
 
 randomless 
-
 bootstrap
 
 

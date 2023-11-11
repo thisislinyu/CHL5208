@@ -1,4 +1,11 @@
-# Generating survival data
+# Survival fundation
 
-The Cox proportional hazards model is given by:   
+## Survival function: the probability of survival times T larger than t
+
+$$S(t) = P(T>=t) = 1-P(T<t) = 1-F(t)$$
+
+## Hazard function : the probability of 「failure」at time t
+
+$$h(t)= lim_{\delta_t}
+
 

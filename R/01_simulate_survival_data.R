@@ -51,7 +51,7 @@ sim_survdat_f <- function(nsample = 100,
 
   beta_df <- matrix(rep(beta,each = nsample),ncol = length(beta)) %>% data.frame()
 
-  modelvar_df <- covar_df %>% select(X1,X3) %>% mutate(X1_X3 = X1*X3)
+  modelvar_df <- covar_df %>% select(X1,X2,X3,X4,X5) %>% mutate(X1_X2 = X1*X2,X3_X4=X3*X4)
   Z <- apply((beta_df*modelvar_df), 1,sum) %>% unlist()## element-wise product of two data frames
 
   # X1 <- covar_df$X1
@@ -97,4 +97,4 @@ sim_survdat_f <- function(nsample = 100,
 #   betaHat[k] <- fit$coef[[2]]
 # }
 # mean(betaHat)
-dat <- sim_survdat_f(nsample =1000, varnum = 25,dist='w',lambda=0.01, rho=1, beta=c(0.1,0.2,0.3), crate=0.001,cor=TRUE,seed=20231106)
+#dat <- sim_survdat_f(nsample =1000, varnum = 25,dist='w',lambda=0.01, rho=1, beta=c(0.1,0.2,0.3), crate=0.001,cor=TRUE,seed=20231106)
