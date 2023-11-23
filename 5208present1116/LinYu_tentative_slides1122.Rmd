@@ -106,6 +106,8 @@ style_duo_accent(
 ---
 
 <br>
+<br>
+
 
 <span style="color:black;font-weight:90;font-size:1.25rem"> 
 However, **interactive effects are usually not considered** in the existing methods
@@ -114,13 +116,14 @@ However, **interactive effects are usually not considered** in the existing meth
 --
 
 <span style="color:black;font-weight:90;font-size:1.25rem"> 
-**HDSI/RHDSI algorithm**: High dimensional selection with interactions algorithm, which accounts for </span> 1. interaction terms; 2. statistical significance of features
+**HDSI/RHDSI algorithm**: High dimensional selection with interactions algorithm, which accounts for  
+1. interaction terms; 2. statistical significance of features
 
-<div style="float: left; width:100%;text-align: left;line-height:2;">
+
+<br>
 
 <div style="float: left; width: 33%; text-align: left;">
 <img src="images/00related_work1.png" > 
-
 
 </div>
 
@@ -130,26 +133,7 @@ However, **interactive effects are usually not considered** in the existing meth
 
 <div style="float: left; width: 33%; text-align: center;">
 <img src="images/00related_work21.png" > 
-</div>  
-
-</div>
-
-<div style="margin-left:0%;; text-align: left;font-size:0.75rem">
-
-<p> References: </P>
-<p>1.	Jain R, Xu W. HDSI: High dimensional selection with interactions algorithm on feature selection and testing. PLOS ONE.</p>    
-
-
-<p>2.	Jain R, Xu W. RHDSI: A novel dimensionality reduction based algorithm on high dimensional feature selection with
-interactions. Inf Sci. 2021 Oct 1;574:590–605. </p>
-<p>3.	Zhuang Z, Xu W, Jain R. High Dimensional Selection with Interactions Algorithm on Feature Selection for Binary Outcome.</p> 
-
-
-
-</div>  
-
-
-
+</div>    
 
 
 ---
