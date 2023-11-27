@@ -46,7 +46,7 @@ style_duo_accent(
 )
 ```
 
-## Background
+## Challenge of High Dimentional Data
 .pull-left[
 [Princess Margaret Cancer Center](https://www.uhnresearch.ca/institutes/pm)
 - Cancer research: genomics, informatics, etc. 
@@ -82,7 +82,7 @@ style_duo_accent(
 
 
 ---
-# Background
+## Feature Selection
 
 ### What is feature selection?   
 
@@ -107,7 +107,7 @@ style_duo_accent(
 
 <br>
 
-<span style="color:black;font-weight:90;font-size:1.25rem"> 
+<span style="color:black;font-weight:90;font-size:1.5rem"> 
 However, **interactive effects are usually not considered** in the existing methods
 </span>
 
@@ -156,7 +156,7 @@ interactions. Inf Sci. 2021 Oct 1;574:590–605. </p>
 class: center, middle 
 
 <span style="color:black;font-weight:90;font-size:1.8rem"> 
-Question:   Is HDSI/RHDSI Robust? Can it be extend to different types of data? </span>
+Research question:   Is HDSI/RHDSI Robust? Can it be extend to different types of data? </span>
 
 --
 
@@ -359,7 +359,7 @@ $$C_i =min(C_i^j)$$]
 
   - number of bootstrap sets
   
-  - number of features
+  - number of features, etc.
   
 ]
 
@@ -367,9 +367,11 @@ $$C_i =min(C_i^j)$$]
 
 ## Next step
 
-- Generate time-to-event data
+- Generate time-to-event data 
 
-- apply the algorithm in simulation study
+- Assess the algorithm in simulation study 
+
+- Apply the algorithm into real clinical study 
 
 ---
 class: middle, center
