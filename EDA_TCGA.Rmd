@@ -1,0 +1,166 @@
+---
+title: "EDA_TCGA"
+author: "Lin Yu"
+date: "2024-01-03"
+output: 
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+```{r load_data, message=FALSE, warning=FALSE}
+load('data/uni_data.rdata')
+library(survival)
+library(tidyverse)
+library(survminer)
+library(reportRmd)
+```
+
+```{r completecase}
+uni_data_cc <- uni_data %>% 
+  filter(!is.na(gender)& !is.na(age_at_diagnosis)&!is.na(race)& !is.na(ajcc_pathologic_stage))
+```
+
+```{r combinedata}
+uni_data$Dataset <- 'With missing'
+uni_data_cc$Dataset <- "Complete cases"
+
+uni_data_rbind <- rbind(uni_data,uni_data_cc) 
+
+```
+
+```{r tableone}
+rm_covsum(data=uni_data_rbind,maincov = 'Dataset',
+          covs=c('survival_status', 'OS.time_yr',"age_at_diagnosis",'age_group','age_group2',"gender",'race' ,'race_cat2',"cancer_type","cancer_stage_cat2","cancer_stage"),all.stats = TRUE)
+
+```
+
+```{r univarate}
+library(reportRmd)
+rm_uvsum(data=uni_data, response=c('OS.time_yr','OS'),
+         covs=c("age_at_diagnosis",'age_group','age_group2',"gender",'race_cat2',
+                "cancer_type","cancer_stage_cat2","cancer_stage"))
+
+rm_uvsum(data=uni_data_cc, response=c('OS.time_month','OS'),
+         covs=c("age_at_diagnosis",'age_group','age_group2',"gender",'race_cat2',
+                "cancer_type","cancer_stage_cat2","cancer_stage"))
+
+```
+
+```{r fit}
+fit_null <- survfit(Surv(OS.time_yr, OS) ~1, data = uni_data)
+#fit_age_cat <- 
+fit_gender <-  survfit(Surv(OS.time_yr, OS) ~gender, data = uni_data)
+
+fit_type <-  survfit(Surv(OS.time_yr, OS) ~cancer_type, data = uni_data)
+
+fit_stage <-  survfit(Surv(OS.time_yr, OS) ~cancer_stage, data = uni_data)
+
+fit_stage_cat2 <-  survfit(Surv(OS.time_yr, OS) ~cancer_stage_cat2, data = uni_data)
+
+fits <- list(fit_gender, fit_type, fit_stage,fit_stage_cat2)
+
+all_plots <- ggsurvplot_list(fits, uni_data)
+
+
+
+OS_null_plot <- ggsurvplot(
+  fit_null,
+  data = uni_data,
+  # Use NULL if survival object is provided directly
+ # title = "Kaplan-Meier Survival Curve",
+  xlab = "Time (year)",
+  ylab = "Survival Probability",
+  risk.table = TRUE,  # Display a table with number at risk
+  pval = TRUE,        # Display p-value
+  surv.median.line = "hv",   #Add median survival line
+  ggtheme = theme_minimal(),   #Adjust the plot theme if needed
+  legend.title = ''
+)
+
+OS_null_plot
+
+
+# OS_null_plot1 <- ggarrange(OS_null_plot$plot,OS_null_plot$table,ncol=1)
+
+ggsave('figure/OS_null_plot.png',plot= OS_null_plot$plot,dpi=300,height = 9,width = 16,units = 'cm')
+
+ggsave('figure/OS_null_table.png',plot= OS_null_plot$table,dpi=300,height = 4,width = 16,units = 'cm')
+
+ggarrange(all_plots[[1]]$plot,all_plots[[2]]$plot,
+          all_plots[[3]]$plot)
+```
+
+```{r}
+fit_stage_plot <-  ggsurvplot(
+  fit_stage,
+  data = uni_data,
+  # Use NULL if survival object is provided directly
+ # title = "Kaplan-Meier Survival Curve",
+  xlab = "Time (year)",
+  ylab = "Survival Probability",
+  risk.table = TRUE,  # Display a table with number at risk
+ # pval = TRUE,        # Display p-value
+  surv.median.line = "hv",   #Add median survival line
+  ggtheme = theme_minimal(),   #Adjust the plot theme if needed
+  legend.title = ''
+)
+
+fit_gender_plot <-  ggsurvplot(
+  fit_gender,
+  data = uni_data,
+  # Use NULL if survival object is provided directly
+ # title = "Kaplan-Meier Survival Curve",
+  xlab = "Time (year)",
+  ylab = "Survival Probability",
+  risk.table = TRUE,  # Display a table with number at risk
+ # pval = TRUE,        # Display p-value
+  surv.median.line = "hv",   #Add median survival line
+  ggtheme = theme_minimal(),   #Adjust the plot theme if needed
+  legend.title = ''
+)
+
+fit_type_plot <-  ggsurvplot(
+  fit_type,
+  data = uni_data,
+  # Use NULL if survival object is provided directly
+ # title = "Kaplan-Meier Survival Curve",
+  xlab = "Time (year)",
+  ylab = "Survival Probability",
+  risk.table = TRUE,  # Display a table with number at risk
+ # pval = TRUE,        # Display p-value
+  surv.median.line = "hv",   #Add median survival line
+  ggtheme = theme_minimal(),   #Adjust the plot theme if needed
+  legend.title = ''
+)
+
+```
+
+
+```{r}
+ggsave('figure/fit_stage.png',plot= fit_stage_plot$plot,dpi=300,height = 9,width = 20,units = 'cm')
+
+ggsave('figure/fit_gender.png',plot= fit_gender_plot$plot,dpi=300,height = 9,width = 20,units = 'cm')
+
+
+ggsave('figure/fit_type.png',plot= fit_type_plot$plot,dpi=300,height = 9,width = 20,units = 'cm')
+
+fit_cov <- ggarrange(fit_gender_plot$plot,fit_type_plot$plot,fit_stage_plot$plot,ncol=1)
+
+ggsave('figure/fit_cov.png',plot= fit_cov,dpi=300,height = 27,width = 20,units = 'cm')
+
+```
+
+```{r}
+coxph(Surv(OS.time_yr, OS) ~cancer_stage_cat2, data = uni_data)
+```

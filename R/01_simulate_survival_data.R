@@ -74,7 +74,13 @@ sim_survdat_f <- function(nsample = 100,
   }
   # censoring times
   C <- rexp(n=nsample, rate=crate)
-
+  C <- runif(nsample,0,quantile(time,0.30))
+  C <- runif(nsample,0,quantile(time,0.9))
+  print(paste(
+    'event rate is',
+    sum(time <= C )/nsample
+  )
+  )
   # follow-up times and event indicators
   status <- as.numeric(time <= C)
   time <- pmin(time, C) ## over-write time variable, compare between time and censor time
@@ -98,3 +104,11 @@ sim_survdat_f <- function(nsample = 100,
 # }
 # mean(betaHat)
 #dat <- sim_survdat_f(nsample =1000, varnum = 25,dist='w',lambda=0.01, rho=1, beta=c(0.1,0.2,0.3), crate=0.001,cor=TRUE,seed=20231106)
+set.seed(100)
+
+## censoring rate
+
+
+
+## event rate
+
