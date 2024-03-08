@@ -1,0 +1,183 @@
+
+####################################
+# Cedar access
+####################################
+
+## Login: 
+ssh username@cedar.computecanada.ca
+## Use your Compute Canada log-in password (DO NOT use Westgrid/Calcul Quebec passwords!)
+
+## Find your own directory within the "project" folder
+## Note that every time you need to change/specify a directory, you will need to head every sub-directory with your own directory path, e.g.,
+cd /home/username/project/username
+
+## Note: Our project allocation number is 6002134
+
+
+####################################
+# Loading R
+####################################
+
+## To see available versions of R:
+module spider r
+ 
+## Load R 3.4.0 and install package of interest
+module load r/3.4.0
+R
+install.packages("<package>")
+## Chose CRAN R mirror (e.g., 51)
+q() # Exit without saving your workspace
+
+## Note personal library locations for installed packages (so basically ~/R/x86_64-pc-linux-gnu-library/3.4): 
+/home/username/R/x86_64-pc-linux-gnu-library/3.4
+
+if [ -n $R_LIBS ];then
+export R_LIBS=~/project/sjlwgs/Rlibs:$R_LIBS
+else
+export R_LIBS=~/project/sjlwgs/Rlibs
+fi
+
+install.packages('censReg', lib="~/project/sjlwgs/Rlibs", repos="...url   “)
+library(LogicReg, lib.loc="/home/cim1/R/x86_64-unknown-linux-gnu-library/3.0/")
+
+####################################
+# Job submission
+####################################
+
+## Westgrid/Calcul Quebec compute clusters use the PBS/Torque software package for job submission/scheduling/monitoring.
+## SLURM is a different software package with its own command syntax.
+## Here are the old bash commands to create a job submission script file, e.g., run_1.sh, and to submit it ('qsub') via PBS/Torque:
+## (Replace cim1 with your own username)
+
+chr=1
+echo -e "cd \$PBS_O_WORKDIR \n module load R \n R --vanilla < /home/cim1/project/cim1/testscript.R --args" $chr > "run_"$chr".sh"
+cd "/home/cim1/project/cim1/chr"$chr
+qsub -l mem=2gb,walltime=4:00:00 "run_"$chr".sh"
+
+## The job submission script, run_1.sh, contains:
+cd $PBS_O_WORKDIR 
+ module load R 
+ R --vanilla < /home/cim1/project/cim1/testscript.R --args 1
+
+## The section below (lines 64-72)) shows the SLURM job submission script, converting the PBS/Torque script above.
+## The #SBATCH lines tell SLURM what resource requirements are necessary for your job.
+## Script must begin with #!/bin/bash because the module load and Rscript lines are in bash.
+## When running serial jobs (i.e., R scripts that run the same calculation, with minor changes in arguments), we only need to request 1 CPU, 1 node per job.
+## Once your job is submitted with the sbatch command in PuTTY, SLURM assesses your resource request with available cluster resources and runs your request.
+## Account option (we must include our HPC resource allocation account): --account=def-yyasui
+## Time option (1 hour walltime): --time=[dd-hh:mm]
+## Nodes/CPU options (1 node, 1 CPU): --ntasks=1, --cpus-per-task=1
+## Mem option: 2 gb memory request for the CPU
+## In the last line, arguments 22 and 1 will change based on your needs.
+
+#!/bin/bash
+#SBATCH --account=def-yyasui
+#SBATCH --time=00-01:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2gb
+
+module load r/3.4.0
+Rscript /home/cim1/project/cim1/testscript.R 22 1
+
+
+## Here are 2 different bash command options to create the .sh job submission script (note that you must remove extra spaces before and after each new line for the script to run properly):
+
+chr=22
+genenum=1
+echo -e '#!/bin/bash\n#SBATCH --account=def-yyasui\n#SBATCH --time=00-04:00\n#SBATCH --ntasks=1\n#SBATCH --cpus-per-task=1\n#SBATCH --mem=8gb\n\nmodule load r/3.4.0\nRscript /home/cim1/project/cim1/testscript.R' $chr $genenum > 'new_'$chr'_'$genenum'.sh'
+
+chr=22
+for genenum in {1..5}
+do
+echo -e '#!/bin/bash
+#SBATCH --account=def-yyasui
+#SBATCH --time=00-04:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2gb\n
+module load r/3.4.0
+Rscript /home/cim1/project/cim1/testscript.R' $chr $genenum > 'new_'$chr'_'$genenum'.sh'
+done
+
+
+## Example for loop to submit jobs (where N=number of jobs): with PBS/Torque, sbatch="qsub"
+## The job queue limit is ~5000, but you should consider running smaller batches at a time and checking the output of each batch before submitting new batches
+
+cd '/home/username/project/username/chr'$chr
+
+for genenum in {1..N}
+do
+sbatch 'new_'$chr'_'$genenum'.sh'
+done
+
+####################################
+# Monitor/cancel jobs
+####################################
+
+## Monitor job (in PBS/Torque, this is "qstat")
+
+squeue -u <username>
+
+
+## To determine what CPU resources were actually used for a specific job
+
+sacct -j <jobid>
+
+## Sample output from sacct is below. Look at MaxRSS for memory, and CPUTime for walltime options.
+
+
+   Account      User        JobID               Start                 End  AllocCPUS    Elapsed                      AllocTRES    CPUTime     AveRSS     MaxRSS MaxRSSTask MaxRSSNode        NodeList
+---------- --------- ------------ ------------------- ------------------- ---------- ---------- ------------------------------ ---------- ---------- ---------- ---------- ---------- ---------------
+def-yyasu+      cim1 2763915      2017-11-23T18:02:07 2017-11-23T18:05:51          1   00:03:44  cpu=1,mem=8G,node=1,billing=2   00:03:44                                                      cdr309
+def-yyasu+           2763915.bat+ 2017-11-23T18:02:07 2017-11-23T18:05:51          1   00:03:44            cpu=1,mem=8G,node=1   00:03:44    775032K    775032K          0     cdr309          cdr309
+def-yyasu+           2763915.ext+ 2017-11-23T18:02:07 2017-11-23T18:05:51          1   00:03:44 cpu=1,mem=8G,energy=184467440+   00:03:44       348K       916K          0     cdr309          cdr309
+
+
+## Cancel one job
+
+scancel <jobid>
+
+## Cancel all jobs for a user
+
+scancel -u <username>
+
+
+####################################
+# Interactive Session
+####################################
+
+## You may wish to do some data exploration at the command line or debug/compile scripts with interactive "console tools" like R and iPython.
+## Start an interactive session on a compute node with salloc for this purpose. In the following example, we request 1 task, which corresponds to 1 CPU core, for 3 hours, with a 10 gb memory allocation request:
+
+salloc --time=3:0:0 --ntasks=1 --cpus-per-task=1 --mem=10gb --account=def-yyasui
+<proceed with desired tasks>
+
+
+####################################
+# Minor organizational tasks in bash
+####################################
+
+## make 22 directories, one for each chr
+
+cd /home/username/project/username
+for j in {1..22}
+do
+mkdir chr$j
+done
+
+## move files to the chr directories
+
+for j in {1..22}
+do
+mv "filename"$j".fileext" /home/username/project/username/chr$j
+done
+
+
+####################################
+# Help
+####################################
+
+## Check out Compute Canada's "how-to" guides for additional info: https://docs.computecanada.ca/wiki/Compute_Canada_Documentation
+## Googling SLURM commands brings up a lot of helpful info (e.g., https://www.rc.fas.harvard.edu/resources/documentation/convenient-slurm-commands/)
+## If you cannot troubleshoot your issue on your own, you can contact Compute Canada directly for assistance: support@computecanada.ca

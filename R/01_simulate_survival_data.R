@@ -17,6 +17,7 @@
 #'dat <- sim_survdat_f(nsample =1000, varnum = 25,dist='g',lambda=0.01, rho=1, beta=c(2.3,0.3,0.4), crate=0.001,cor=TRUE,seed=20231106)
 #'fit <- survival::coxph(Surv(time, status) ~ X1+X3+X1*X3, data=dat)
 
+
 sim_survdat_f <- function(nsample = 100,
                           varnum =25,
                           dist = 'w',
@@ -28,8 +29,8 @@ sim_survdat_f <- function(nsample = 100,
                           seed = 20231106,
                           ...)
 {
-  library(pacman)
-  pacman::p_load(tidyverse)
+
+  library(tidyverse)
 
   Sigma=matrix(rep(0,varnum), nrow=varnum, ncol=varnum, byrow=F)
 

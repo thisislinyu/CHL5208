@@ -1,0 +1,87 @@
+---
+title: "sim_set1_results"
+author: "Lin Yu"
+date: "2024-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+directory <- "server_output/sim_set1_ccdb_output"
+
+# List all .rdata files in the directory
+rdata_files <- list.files(directory, pattern = "\\.rdata$", full.names = TRUE)
+
+# Read each .rdata file
+data_list <- lapply(rdata_files, function(file) {
+  load(file)
+  # Return the loaded object(s)
+  return(get(load(file)))
+})
+
+# Optionally, you can combine all loaded objects into a single list or data frame
+combined_data <- do.call(rbind, data_list)  # Example for combining into a data frame
+
+
+## 2*4*11*16+ 2*2*11
+combined_data_set1 <- combined_data %>%
+  mutate(nboot_ft = rep(c(10:20),
+                        nrow(combined_data)/11
+                        # nrow(hyperparameter_grid)*2
+  ) %>%
+    sort(),
+  var_num = 25
+  )
+```
+
+## marginal check
+```{r}
+tmp <- combined_data1 %>%
+  group_by(nboot_ft) %>%
+  mutate(avg_perf = mean(na.omit(avg_cindex))) %>%  ## performance of different nboot,
+  select(-avg_cindex) %>%
+  unique() %>% 
+  mutate(facet_name = 'nboot') %>%
+  bind_rows(
+    combined_data1 %>%
+  group_by(Rf) %>%
+  mutate(avg_perf = mean(na.omit(avg_cindex))) %>%  ## performance of different nboot,
+  select(-avg_cindex) %>%
+  unique() %>% 
+  mutate(facet_name = 'Rf')
+  ) %>% 
+  bind_rows(
+     combined_data1 %>%
+  group_by(qtl) %>%
+  mutate(avg_perf = mean(na.omit(avg_cindex))) %>%  ## performance of different nboot,
+  select(-avg_cindex) %>%
+  unique() %>% 
+  mutate(facet_name = 'qtl')
+  )
+  
+
+  ggplot(data = tmp %>% filter(facet_name=='Rf'), aes(x = as.factor(Rf), y = avg_perf, color = method)) +
+  geom_line(aes(group = method)) +
+  geom_point()+
+  theme_bw()+
+  xlab('Rf values')+
+  ylab('Averaged performance (Cindex)')
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+combined_data1 %>% filter(!is.na(avg_cindex)) %>%
+  group_by(method) %>%
+  mutate(max_cindex = max(avg_cindex)) %>%
+  filter(max_cindex==avg_cindex)
+
+combined_data2 
+
+```
+```{r}
+
+```

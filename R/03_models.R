@@ -1,10 +1,36 @@
 library(survival)
+library(caret)
+library(ggplot2)
+library(hrbrthemes)
+library(dplyr)
+library(tidyr)
+library(viridis)
+library(ggridges)
+library(pacman)
+library(tidyverse)
+library(parallel)
 source("R/01_simulate_survival_data.R")
 source("R/02_bootstrap_datasets.R")
-dat <- sim_survdat_f(nsample = 1000, varnum = 25, dist = "g", lambda = 0.01, rho = 1, beta = c(1.8,0.5,0.4,-0.4,0.45,0.6,-0.6), crate = 0.001, cor = TRUE, seed = 20231106)
-fit <- survival::coxph(Surv(time, status) ~ X1 + X2 + X3 + X4+ X5+X1*X2+X3*X4, data = dat)
 load('data/cox_dat.rdata')
-library(caret)
+
+source("R/helper_f.R")
+load('output/lung_boot_lst.rdata')
+dat <- sim_survdat_f(nsample = 1000, varnum = 25, dist = "g", lambda = 0.01, rho = 1, be0.45ta = c(1,0.5,0.4,-0.4,0.45,0.6,-0.6), crate = 0.001, cor = TRUE, seed = 20231106)
+fit <- survival::coxph(Surv(time, status) ~ X1 + X2 + X3 + X4+ X5+X1*X2+X3*X4, data = dat)
+
+
+fit <- survival::coxph(Surv(time, status) ~ as.formula(paste(res_hyper10[[i]][[2]],collapse = "+")), data = dat)
+
+
+# sim_boot_lst <- boot_f(
+#   df = dat,
+#   nboot = 100,
+#   boot_ft = 5,
+#   seed = 20231106
+# )
+# #
+# save(sim_boot_lst,file="output/sim_boot_lst.rdata")
+
 
 pacman::p_load(glmnet)
 
@@ -12,15 +38,29 @@ pacman::p_load(caret)
 
 HDSI_model_f <- function(boot_df_train = NA,
                          # boot_df_test = NA,
+                         cov_interact = FALSE,
                          method = "lasso") {
   library(pacman)
   pacman::p_load(glmnet)
+  library(survival)
 
   ### x input in cv.glmnet
   y <- "survival::Surv(time,status)"
   ## f=stats::as.formula(paste(y," ~ .*.*."))
   f <- stats::as.formula(paste(y, " ~ .*.")) ## pair-wise interaction
-  X <- stats::model.matrix(f, boot_df_train)[, -1]
+  f1 <- stats::as.formula(paste(y, " ~ ."))
+
+ if(cov_interact == TRUE){
+    X <- stats::model.matrix(f, boot_df_train)[, -1]
+  }else{
+   X_tmp <-  boot_df_train %>%
+      select(time, status,age_at_diagnosis,cancer_stage) %>%
+      bind_cols(
+        stats::model.matrix(f, boot_df_train %>%
+                              select(-age_at_diagnosis,-cancer_stage))[, -1] )
+   X <- stats::model.matrix(f1, X_tmp)[,-1]
+  }
+
   #X_test <- stats::model.matrix(f, boot_df_test)[, -1]
   ### y input in cv.glmnet
   time <- boot_df_train$time
@@ -33,6 +73,7 @@ HDSI_model_f <- function(boot_df_train = NA,
       x = X, y = Y, alpha = 1,
       standardize = F, family = "cox", nfolds = 5
     )
+    print('so far so good 1')
     lambda.1se <- cv_fit$lambda.1se
     lambda.min <- cv_fit$lambda.min
 
@@ -51,6 +92,7 @@ HDSI_model_f <- function(boot_df_train = NA,
     #
     # apply(risk_scores, 2, glmnet::Cindex, y=y1)
   }
+  print("so far so good ")
   if (method == "ridge") {
     cv_fit <- glmnet::cv.glmnet(
       x = X, y = Y, alpha = 0,
@@ -80,17 +122,32 @@ uni_cox_res2 <- uni_cox_res2 %>%
   mutate(index = grepl("X_",var_name))
 
 save(uni_cox_res2,file = "output/uni_cox_res2.rdata")
+load("output/uni_cox_res2.rdata")
+load('data/cox_dat.rdata')
+
+tmp <- uni_cox_res2 %>% filter(index==TRUE)
+
+library(tidyverse)
+p_dat <- tmp %>% select(rawp,BH) %>%
+  filter(!is.na(BH)) %>%
+  pivot_longer(cols = c(rawp,BH))
+
+
+ p_dat %>%  ggplot( aes(x=value, y=name, fill=name)) +
+   geom_density_ridges() +
+   theme_ridges() +
+   theme(legend.position = "none")
 
 uni_gene_res <- uni_cox_res2 %>% filter(index==TRUE) %>%
-  filter(BH<=0.05)
+  filter(BH<=0.05) %>% arrange(BH)
 
-cox_sig_dat <- cox_dat[,colnames(cox_dat) %in% c("time","status","age_at_diagnosis","cancer_stage",uni_gene_res$var_name)]
+cox_sig_dat <- cox_dat[c(1:104),colnames(cox_dat) %in% c("time","status","age_at_diagnosis","cancer_stage",uni_gene_res$var_name)]
 
 t1 = Sys.time()
 boot_lst <- boot_f1(
   df = cox_sig_dat,
   nboot = 100,
-  boot_ft = 500,
+  boot_ft = 20,
   seed = 20231106
 )
 
@@ -106,30 +163,29 @@ boot_lst <- boot_f1(
 
 
 m <- c("lasso")
-inter_perf_f <- function(boot_lst=NA,
+inter_perf_f <- function(boot_lst,
+                         cov_interact = FALSE,
                          method = "lasso",
+                         k = 3, ## cv fold number
                          qtl = NA,
                          Rf = NA){
+  library(caret)
   m <- method
   model_out_all <- lapply(1:length(m), function(x) {
     lapply(1:length(boot_lst), function(y) {
-      folds <- createFolds(boot_lst[[y]]$status, k = 5, list = TRUE, returnTrain = FALSE)
+      folds <- createFolds(boot_lst[[y]]$status, k = k, list = TRUE, returnTrain = FALSE)
 
       ## the validation performance
       lapply(1:length(folds),function(z){
-
-        res <-  HDSI_model_f(boot_df_train = boot_lst[[y]][-folds[[z]],],
+        boot_df_train_tmp <- boot_lst[[y]][-folds[[z]],]
+        res <-  HDSI_model_f(boot_df_train = boot_df_train_tmp,
+                             cov_interact = cov_interact,
                              # boot_df_test = boot_lst[[y]][folds[[z]],],
                              method = m[[x]])
         res$boot = y
         res$fold = -z
         res
       })
-      # %>% bind_rows() %>%
-      #   group_by(varname) %>%
-      #   summarise(X1 = mean(X1),
-      #             model_cindex = mean(model_cindex))
-
     })
   })
 
@@ -206,8 +262,10 @@ inter_perf_f <- function(boot_lst=NA,
 }
 
 t3 = Sys.time()
-test <- inter_perf_f(boot_lst=boot_lst,
-                         method = c("lasso"),
+test <- inter_perf_f(boot_lst=lung_boot_lst[1], ## list input
+                         method = c("ridge"),
+                         k = 3,
+                        cov_interact = FALSE,
                          qtl = 0.02,
                          Rf = 0.6)
 t4 = Sys.time()
@@ -221,7 +279,7 @@ t4 = Sys.time()
 
 # Define hyperparameter grid
 hyperparameter_grid <- expand.grid(qtl = seq(0.01, 0.02, by = 0.01),
-                                   Rf = seq(0.1, 1, by = 0.5))
+                                   Rf = 0.1)
 
 library(parallel)
 # parallelize hyperparameter tuning
@@ -230,7 +288,7 @@ parallel_tuning <- function(row) {
   Rf_value <- row['Rf']
 
   # Call function with current hyperparameter values
-  performance_metric_value <- inter_perf_f(boot_lst=boot_lst, method = c("lasso", "ridge"), qtl = qtl_value, Rf = Rf_value)
+  performance_metric_value <- inter_perf_f(boot_lst=boot_lst, method = c( "ridge"), qtl = qtl_value, Rf = Rf_value)
 
   # Return results for each row
   c(qtl = qtl_value, Rf = Rf_value, performance_metric = performance_metric_value)
@@ -253,7 +311,10 @@ clusterEvalQ(cl, {
 # Use pblapply for parallel computing with progress bar
 results_list <- pbapply::pblapply(split(hyperparameter_grid, 1:nrow(hyperparameter_grid)), parallel_tuning, cl = cl)
 
-results_list[[2]]
+
+
+tmp <- results_list[[2]]$performance_metric
+
 # Stop the parallel cluster
 stopCluster(cl)
 
@@ -267,6 +328,8 @@ internal_res <- lapply(1:length(m),function(x){
       results_list[[y]][[x+2]] %>% bind_rows() ## 2 is the number of hyperparamters in the grid df
     }) %>% bind_rows()
   }) %>%  bind_rows()
+
+save(internal_res,file = 'data/internal_res.rdata')
 
 opt_dat <-left_join(internal_res,
   internal_res %>% group_by(method) %>%
@@ -298,17 +361,24 @@ lung_boot_lst <- boot_f1(
 
 boot_lst <- lung_boot_lst
 m = "lasso"
-opt_qtl =
+
+t5 = Sys.time()
 model_out_all <- lapply(1:length(m), function(x) {
   lapply(1:length(boot_lst), function(y) {
     HDSI_model_f(boot_df = boot_lst[[y]], method = m[[x]])
   })
 })
+t6 = Sys.time()
 
 Sys.time()
+library(stringr)
+opt_qtl = 0.05
+Rf = 3.9
 selected_dat <- lapply(1:length(m), function(x) {
   ## bind B boot sample results into a dataframe
   perf_tmp <- model_out_all[[x]] %>% bind_rows()
+  perf_tmp <- model_out_all[[x]] %>% bind_rows() %>%
+    filter(!grepl('yr',varname))
   fe_star <- perf_tmp %>% group_by(model_cindex) %>% summarise(n=n())
   ### compute min_cindex
   min_cindex <- perf_tmp %>%
@@ -318,7 +388,7 @@ selected_dat <- lapply(1:length(m), function(x) {
       miu_min_cindex = mean(min_cindex),
       # sigma_min_cindex = sqrt(mean((min_cindex - miu_min_cindex)^2) / (fe_star$n %>% unique() - 1)),
       sd_min_cindex = sd(min_cindex),
-      Rf = 2, ## hyperparameter
+      Rf = Rf, ## hyperparameter
       include_yn = min_cindex > (miu_min_cindex + Rf * sd_min_cindex)
     )
 
@@ -355,28 +425,52 @@ selected_dat <- lapply(1:length(m), function(x) {
 ## [[1]]代表lasso方法；
 selected_vars_dat <- data.frame(var_name =selected_dat[[1]][[2]]) %>%
 mutate(new_var = str_replace_all(var_name,":","\\*"),
-       index = grepl("age",selected_vars_dat$new_var)) %>%
+       index = grepl("age",new_var)) %>%
   filter(index==FALSE)
 
 select_gene <- selected_vars_dat$new_var
 
+length(select_gene)
 
 
+selected_vars1 <- selected_vars_dat %>%
+  mutate(interact = grepl("\\*",new_var))
 
+
+## output the number of main and interaction terms
+selected_vars1$interact %>% table()
+
+used_vars <- uni_cox_res2 %>%
+  mutate(used_vars = var_name %in% colnames(reg_dat)) %>%
+  filter(used_vars==TRUE)
+
+
+match_dat <- left_join(used_vars,selected_vars1,by ="var_name") %>%
+  arrange(BH)
+
+top25 <- match_dat[c(1:50),]
 
 selected_genes <- paste(select_gene, collapse = "+")
 gene_string <- capture.output(cat(selected_genes)) %>% paste(collapse = "\n")
 
+
+
+cov_var_paste <- paste(gene_string,
+      'age_at_diagnosis+cancer_stage',sep = "+")
+
+formula1 <- paste("surv_object ~",cov_var_paste
+)
+
+formula2 <- paste("surv_object ~",gene_string)
 surv_object <- Surv(time = cox_dat$time,
                     event = cox_dat$status)
-formula <- as.formula(paste("surv_object ~",
-                            paste(gene_string,
-                                  'age_at_diagnosis+cancer_stage',sep = "+")))
+formula <- as.formula(formula1)
 cox_model <- coxph(formula, data = cox_dat)
 result_summary <- summary(cox_model)
- <- result_summary$coefficients %>% data.frame() %>% bind_rows()
+ coef_table1 <- result_summary$coefficients %>% data.frame() %>% bind_rows()
 
 c_index <- concordance(cox_model)
+c_index
 # tmp <- lapply(1:length(lung_boot_lst), function(x){
 #   trainIndex <- createDataPartition(cox_dat$status,
 #                                     p = 0.8, list = FALSE)
@@ -392,9 +486,16 @@ tmp1 <- tmp[[1]]
 #
 # tmp2 <- boot_lst[[1]]
 
-test <- HDSI_model_f(boot_df_train = tmp1,
+test <- HDSI_model_f(boot_df_train = lung_boot_lst[[1]],
                      # boot_df_test = NA,
-                     method = "lasso")
+                     cov_interact = FALSE,
+                     method = "ridge")
+
+
+tmp <- HDSI_model_f(boot_df_train = lung_boot_lst[[1]],
+              # boot_df_test = NA,
+              cov_interact = FALSE,
+              method = "ridge")
 
 ## till now we have the results for one bootstrap set
 ## we need to get n bootstrap results, using lapply

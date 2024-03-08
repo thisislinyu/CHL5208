@@ -1,0 +1,41 @@
+/var/spool/slurm/slurmd/job11839680/slurm_script: line 8: Rscript: command not found
+Job complete, captain!
+
+scontrol show job 11839680
+JobId=11839680 JobName=testplot
+   UserId=zyzhang(3104599) GroupId=wxu(6002819) MCS_label=N/A
+   Priority=2228291 Nice=0 Account=def-wxu QOS=normal
+   JobState=COMPLETING Reason=None Dependency=(null)
+   Requeue=0 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
+   RunTime=00:00:03 TimeLimit=01:00:00 TimeMin=N/A
+   SubmitTime=2024-01-19T17:02:17 EligibleTime=2024-01-19T17:02:17
+   AccrueTime=2024-01-19T17:02:17
+   StartTime=2024-01-19T17:02:19 EndTime=2024-01-19T17:02:22 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2024-01-19T17:02:19 Scheduler=Main
+   Partition=compute AllocNode:Sid=nia-login02:51410
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=nia0226
+   BatchHost=nia0226
+   NumNodes=1 NumCPUs=80 NumTasks=1 CPUs/Task=4 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=4,mem=175000M,node=1,billing=2
+   AllocTRES=cpu=80,mem=175000M,node=1,billing=40
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   MinCPUsNode=4 MinMemoryNode=175000M MinTmpDiskNode=0
+   Features=[skylake|cascade] DelayBoot=00:00:00
+   OverSubscribe=NO Contiguous=0 Licenses=(null) Network=(null)
+   Command=/gpfs/fs0/scratch/w/wxu/zyzhang/linyu/test.sh
+   WorkDir=/gpfs/fs0/scratch/w/wxu/zyzhang/linyu
+   Comment=/opt/slurm/bin/sbatch --export=NONE test.sh 
+   StdErr=/gpfs/fs0/scratch/w/wxu/zyzhang/linyu/omp_output_11839680.txt
+   StdIn=/dev/null
+   StdOut=/gpfs/fs0/scratch/w/wxu/zyzhang/linyu/omp_output_11839680.txt
+   Power=
+   MailUser=zyzhang@scinet.local MailType=INVALID_DEPEND,BEGIN,END,FAIL,REQUEUE,STAGE_OUT
+   
+
+sacct -j 11839680
+JobID           JobName    Account    Elapsed  MaxVMSize     MaxRSS  SystemCPU    UserCPU ExitCode 
+------------ ---------- ---------- ---------- ---------- ---------- ---------- ---------- -------- 
+11839680       testplot    def-wxu   00:00:03                         00:00:00   00:00:00      0:0 
+11839680.ba+      batch    def-wxu   00:00:03                         00:00:00   00:00:00      0:0 
+11839680.ex+     extern    def-wxu   00:00:03                         00:00:00   00:00:00      0:0 

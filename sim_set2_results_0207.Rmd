@@ -1,0 +1,202 @@
+---
+title: "sim_set1_results"
+author: "Lin Yu"
+date: "2024-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+directory <- "server_output/sim_set2_ccdb_output"
+
+# List all .rdata files in the directory
+rdata_files <- list.files(directory, pattern = "\\.rdata$", full.names = TRUE)
+
+# Read each .rdata file
+data_list <- lapply(rdata_files, function(file) {
+  load(file)
+  # Return the loaded object(s)
+  return(get(load(file)))
+})
+
+# Optionally, you can combine all loaded objects into a single list or data frame
+combined_data <- do.call(rbind, data_list)  # Example for combining into a data frame
+
+
+## 2*4*11*16+ 2*2*11
+combined_data_set2 <- combined_data %>%
+  mutate(nboot_ft = rep(c(10:20),
+                        nrow(combined_data)/11
+                        # nrow(hyperparameter_grid)*2
+  ) %>%
+    sort(),
+  var_num = 50)
+```
+
+```{r}
+tmp1 <- rbind(combined_data_set1,combined_data_set2)
+```
+
+```{r}
+tmp2 <- tmp1 %>% 
+  group_by(method,Rf,nboot_ft,var_num,qtl) %>% 
+   mutate(avg_perf = mean(na.omit(avg_cindex)))
+  
+```
+
+```{r}
+ plot_ly(tmp2 %>% filter(var_num==25  & method=='lasso')
+         , x = ~nboot_ft, y = ~Rf, z = ~avg_cindex, type = "scatter3d",
+                   marker = list(size = 2))
+
+ plot_ly(tmp2 %>% filter(var_num==25  & method=='ridge')
+         , x = ~nboot_ft, y = ~Rf, z = ~avg_cindex, type = "scatter3d",
+                   marker = list(size = 2))
+```
+
+
+```{r}
+ plot_ly(tmp2 %>% filter(var_num==50  & method=='lasso')
+         , x = ~nboot_ft, y = ~Rf, z = ~avg_cindex, type = "scatter3d",
+                   marker = list(size = 2))
+
+ plot_ly(tmp2 %>% filter(var_num==50  & method=='ridge')
+         , x = ~nboot_ft, y = ~Rf, z = ~avg_cindex, type = "scatter3d",
+                   marker = list(size = 2))
+```
+
+
+## marginal check
+```{r}
+tmp <- tmp1 %>%
+  group_by(nboot_ft) %>%
+  mutate(avg_perf = mean(na.omit(avg_cindex))) %>%  ## performance of different nboot,
+  select(-avg_cindex) %>%
+  unique() %>% 
+  mutate(facet_name = 'nboot') %>%
+  bind_rows(
+    combined_data1 %>%
+  group_by(Rf) %>%
+  mutate(avg_perf = mean(na.omit(avg_cindex))) %>%  ## performance of different nboot,
+  select(-avg_cindex) %>%
+  unique() %>% 
+  mutate(facet_name = 'Rf')
+  ) %>% 
+  bind_rows(
+     combined_data1 %>%
+  group_by(qtl) %>%
+  mutate(avg_perf = mean(na.omit(avg_cindex))) %>%  ## performance of different nboot,
+  select(-avg_cindex) %>%
+  unique() %>% 
+  mutate(facet_name = 'qtl')
+  )
+  
+
+  ggplot(data = tmp %>% filter(facet_name=='Rf'), aes(x = as.factor(Rf), y = avg_perf, color = var_num)) +
+  geom_line(aes(group = var_num)) +
+  geom_point()+
+  theme_bw()+
+  xlab('Rf values')+
+  ylab('Averaged performance (Cindex)')
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+combined_data_set2 %>% filter(!is.na(avg_cindex)) %>%
+  group_by(method) %>%
+  mutate(max_cindex = max(avg_cindex)) %>%
+  filter(max_cindex==avg_cindex)
+
+```
+
+```{r}
+## generate 10 test samples
+res_hyper10 <- list()
+beta_coef <-   c(1, 1, 0.75, -0.75, 0.75, 1, -1)
+
+## the best bootstrap features
+opt_boot_ft <- 20
+
+for(i in c(1:10)){
+print(paste0("i=",i))
+sim_ext_dat <- sim_survdat_f(nsample = 500,
+                     varnum = 25,
+                     dist = "g",
+                     lambda = 0.01,
+                     rho = 1,
+                     beta = beta_coef,
+                     crate = 0.001, cor = TRUE, seed = i)
+
+
+
+sim_ext_lst <- boot_f(df = sim_ext_dat,
+                   nboot = 100,
+                   boot_ft = opt_boot_ft,
+                   seed = i)
+
+m <- c('lasso','ridge')
+sim_ext_out <- lapply(1:length(m), function(x) {
+  lapply(1:length(sim_ext_lst), function(y) {
+    HDSI_model_f(boot_df = sim_ext_lst[[y]], method = m[[x]],cov_interact = TRUE)
+  })
+})
+
+model_out_all <- sim_ext_out
+
+ 
+opt_qtl <- c(0.11,0.21)
+ opt_Rf <- c(2,2)
+selected_dat <- lapply(1:length(m), function(x) {
+  ## bind B boot sample results into a dataframe
+  perf_tmp <- model_out_all[[x]] %>% bind_rows()
+  fe_star <- perf_tmp %>% group_by(model_cindex) %>% summarise(n=n())
+  ### compute min_cindex
+  min_cindex <- perf_tmp %>%
+    group_by(varname) %>%
+    summarise(min_cindex = min(model_cindex)) %>%
+    mutate(
+      miu_min_cindex = mean(min_cindex),
+      # sigma_min_cindex = sqrt(mean((min_cindex - miu_min_cindex)^2) / (fe_star$n %>% unique() - 1)),
+      sd_min_cindex = sd(min_cindex),
+      Rf_tuned = opt_Rf[x], ## hyperparameter
+      include_yn = min_cindex > (miu_min_cindex + Rf_tuned * sd_min_cindex)
+    )
+
+  ### compute coef estimate and CI
+  beta_quantile <- perf_tmp %>%
+    group_by(varname) %>%
+    mutate(quantile = opt_qtl[x]) %>% ## quantile is a hyperparameter
+    summarise(
+      qtl = opt_qtl[x],
+      beta_hat = mean(X1),
+      qtl_lower = quantile(X1, probs = qtl/2),
+      qtl_upper = quantile(X1, probs = 1 - (qtl /2) ),
+      include0_yn = !(((qtl_lower <= 0) & (0 <= qtl_upper)) | ((qtl_upper <= 0) & (0 <= qtl_lower)))
+    )
+
+  ### join beta and cindex in a dataframe; filter selected features
+  perf <- full_join(beta_quantile, min_cindex, by = "varname") %>%
+    filter(include0_yn == TRUE & include_yn == TRUE)
+
+  ### adding back main effect if only interaction terms are selected
+  included_inter <- perf$varname[str_detect(perf$varname, ":")] ## detect interaction terms
+
+  ## detect main effect terms from interaction
+  included_inter1 <- stringr::str_split(included_inter, ":") %>% unlist()
+
+  ## final selected features
+  included_fe <- c(perf$varname, included_inter1) %>% unique()
+
+  res <- list(perf,included_fe)
+
+  res
+})
+
+res_hyper10[[i]] <- selected_dat
+}
+
+```

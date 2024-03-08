@@ -1,0 +1,252 @@
+---
+title: "Untitled"
+author: "Lin Yu"
+date: "2024-01-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+set.seed(1017)
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(DT)
+library(survival)
+library(caret)
+library(stringr)
+source("R/01_simulate_survival_data.R")
+source("R/02_bootstrap_datasets.R")
+load('data/cox_dat.rdata')
+load("output/uni_cox_res2.rdata")
+## boot_f1 for real data
+boot_f1 <- function(df = NA,
+                   nboot = 100,
+                   boot_ft = 5,
+                   gene_index = 5,
+                   cov_vars = c('age_at_diagnosis','cancer_stage'),
+                   seed = 20231106,
+                   ...) {
+  ## get the feature names in df total features
+  tot_ft <- df[,-c(1:gene_index-1)] %>%
+    # starts_with("X") # ^ start sign;
+    # $ end of a string, d+ one or more digital
+    ## This may be problematic if df is not generated from sim_surv_f
+    colnames()
+
+  set.seed(seed)
+
+  boot_lst <- lapply(1:nboot, function(x) {
+    ### sample boot_ft from tot_ft
+    boot_feature <- sample(tot_ft, boot_ft, replace = FALSE) %>%
+      naturalsort::naturalsort()
+
+    ### sample nrow(df) people from df with replacement;
+
+    boot_sample <- df %>%
+      #### sample status = 1
+      filter(status == 1) %>%
+      sample_n(size = nrow(.), replace = TRUE) %>%
+      bind_rows(df %>% filter(status == 0) %>%
+                  #### sample status = 0
+                  sample_n(size = nrow(.), replace = TRUE)) %>%
+      select(time, status,all_of(cov_vars) ,all_of(boot_feature))
+  })
+
+  return(boot_lst)
+}
+
+HDSI_model_f <- function(boot_df_train = NA,
+                         # boot_df_test = NA,
+                         method = "lasso") {
+  library(pacman)
+  pacman::p_load(glmnet)
+
+  ### x input in cv.glmnet
+  y <- "survival::Surv(time,status)"
+  ## f=stats::as.formula(paste(y," ~ .*.*."))
+  f <- stats::as.formula(paste(y, " ~ .*.")) ## pair-wise interaction
+  X <- stats::model.matrix(f, boot_df_train)[, -1]
+  #X_test <- stats::model.matrix(f, boot_df_test)[, -1]
+  ### y input in cv.glmnet
+  time <- boot_df_train$time
+  status <- boot_df_train$status
+  Y <- Surv(boot_df_train$time, boot_df_train$status)
+  #Y_test <- Surv(boot_df_test$time, boot_df_test$status)
+
+  if (method == "lasso") {
+    cv_fit <- glmnet::cv.glmnet(
+      x = X, y = Y, alpha = 1,
+      standardize = F, family = "cox", nfolds = 5
+    )
+    lambda.1se <- cv_fit$lambda.1se
+    lambda.min <- cv_fit$lambda.min
+
+    model_fit <- glmnet::glmnet(x = X, y = Y, lambda = lambda.1se, alpha = 0, standardize = F, family = "cox")
+    model_coef <- as.matrix(coef(model_fit, s = lambda.1se)) %>%
+      data.frame() %>%
+      mutate(varname = rownames(.))
+
+    pred <- predict(model_fit, s = lambda.1se, newx = X, type = "link")
+
+    model_cindex <- apply(pred, 2, Cindex, y = Y)
+
+    model_out <- model_coef %>% mutate(model_cindex = model_cindex)
+
+    # y1 = cbind(time = time, status = status)
+    #
+    # apply(risk_scores, 2, glmnet::Cindex, y=y1)
+  }
+  if (method == "ridge") {
+    cv_fit <- glmnet::cv.glmnet(
+      x = X, y = Y, alpha = 0,
+      standardize = F, family = "cox", nfolds = 5
+    )
+
+    lambda.1se <- cv_fit$lambda.1se
+    lambda.min <- cv_fit$lambda.min
+
+    model_fit <- glmnet::glmnet(x = X, y = Y, lambda = lambda.1se, alpha = 1, standardize = F, family = "cox")
+
+    model_coef <- as.matrix(coef(model_fit, s = lambda.1se)) %>%
+      data.frame() %>%
+      mutate(varname = rownames(.))
+
+    pred <- predict(model_fit, s = lambda.1se, newx = X, type = "link")
+
+    model_cindex <- apply(pred, 2, Cindex, y = Y)
+
+    model_out <- model_coef %>% mutate(model_cindex = model_cindex)
+  }
+
+  return(model_out)
+}
+```
+
+```{r}
+uni_cox_res2 %>% filter(index == TRUE) %>% select(-index) %>% 
+  DT::datatable(filter='top', editable = 'cell',extensions = 'Buttons',
+                    options = list(dom = 'Blfrtip',
+                                   scrollX = TRUE,
+                                   scrollY = TRUE,
+                                   buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                                   lengthMenu = list(c(5,25,50,100,-1),
+                                                     c(5,25,50,100,"All"))))
+
+```
+
+```{r}
+
+uni_gene_res <- uni_cox_res2 %>% filter(index==TRUE) %>%
+  filter(BH<=0.05) %>% arrange(BH)
+
+cox_sig_dat <- cox_dat[c(1:100),colnames(cox_dat) %in% c("time","status","age_at_diagnosis","cancer_stage",uni_gene_res$var_name)]
+
+t1 = Sys.time()
+boot_lst <- boot_f1(
+  df = cox_sig_dat,
+  nboot = 100,
+  boot_ft = 20,
+  seed = 20231106
+)
+```
+
+
+```{r}
+m <- c("lasso")
+
+t5 = Sys.time()
+model_out_all <- lapply(1:length(m), function(x) {
+  lapply(1:length(boot_lst), function(y) {
+    HDSI_model_f(boot_df = boot_lst[[y]], method = m[[x]])
+  })
+})
+t6 = Sys.time()
+
+```
+
+```{r}
+opt_qtl = 0.01
+Rf = 1.7
+Sys.time()
+selected_dat <- lapply(1:length(m), function(x) {
+  ## bind B boot sample results into a dataframe
+  perf_tmp <- model_out_all[[x]] %>% bind_rows()
+  fe_star <- perf_tmp %>% group_by(model_cindex) %>% summarise(n=n())
+  ### compute min_cindex
+  min_cindex <- perf_tmp %>%
+    group_by(varname) %>%
+    summarise(min_cindex = min(model_cindex)) %>%
+    mutate(
+      miu_min_cindex = mean(min_cindex),
+      # sigma_min_cindex = sqrt(mean((min_cindex - miu_min_cindex)^2) / (fe_star$n %>% unique() - 1)),
+      sd_min_cindex = sd(min_cindex),
+      Rf = Rf, ## hyperparameter
+      include_yn = min_cindex > (miu_min_cindex + Rf * sd_min_cindex)
+    )
+
+  ### compute coef estimate and CI
+  beta_quantile <- perf_tmp %>%
+    group_by(varname) %>%
+    mutate(quantile = opt_qtl) %>% ## quantile is a hyperparameter
+    summarise(
+      qtl = opt_qtl,
+      beta_hat = mean(X1),
+      qtl_lower = quantile(X1, probs = qtl/2),
+      qtl_upper = quantile(X1, probs = 1 - (qtl /2) ),
+      include0_yn = !(((qtl_lower <= 0) & (0 <= qtl_upper)) | ((qtl_upper <= 0) & (0 <= qtl_lower)))
+    )
+
+  ### join beta and cindex in a dataframe; filter selected features
+  perf <- full_join(beta_quantile, min_cindex, by = "varname") %>%
+    filter(include0_yn == TRUE & include_yn == TRUE)
+
+  ### adding back main effect if only interaction terms are selected
+  included_inter <- perf$varname[str_detect(perf$varname, ":")] ## detect interaction terms
+
+  ## detect main effect terms from interaction
+  included_inter1 <- stringr::str_split(included_inter, ":") %>% unlist()
+
+  ## final selected features
+  included_fe <- c(perf$varname, included_inter1) %>% unique()
+
+  res <- list(perf,included_fe)
+
+  res
+})
+
+## [[1]]代表lasso方法；
+selected_vars_dat <- data.frame(var_name =selected_dat[[1]][[2]]) %>%
+mutate(new_var = str_replace_all(var_name,":","\\*"),
+       index = grepl("age",new_var)) %>%
+  filter(index==FALSE)
+
+select_gene <- selected_vars_dat$new_var
+
+length(select_gene)
+
+
+
+selected_genes <- paste(select_gene, collapse = "+")
+gene_string <- capture.output(cat(selected_genes)) %>% paste(collapse = "\n")
+
+
+```
+
+```{r}
+
+cov_var_paste <- paste(gene_string,
+      'age_at_diagnosis+cancer_stage',sep = "+")
+
+formula1 <- paste("surv_object ~",cov_var_paste
+)
+
+formula2 <- paste("surv_object ~",gene_string)
+surv_object <- Surv(time = cox_dat$time,
+                    event = cox_dat$status)
+formula <- as.formula(formula2)
+cox_model <- coxph(formula, data = cox_dat)
+result_summary <- summary(cox_model)
+ tmp<- result_summary$coefficients %>% data.frame() %>% bind_rows()
+
+c_index <- concordance(cox_model)
+c_index
+```
